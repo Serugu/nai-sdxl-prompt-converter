@@ -549,17 +549,31 @@
       <h3>📖 構文リファレンス</h3>
       <div class="syntax-grid">
         <div class="syntax-item nai">
-          <span class="syntax-label">NovelAI 強調構文</span>
+          <span class="syntax-label">NovelAI 数値強調</span>
           <div class="syntax-code">weight::tag::</div>
           <div class="syntax-example">
             例: <span>1.5::artist:sakura_ai::</span>
           </div>
         </div>
+        <div class="syntax-item nai">
+          <span class="syntax-label">NovelAI 括弧強調/弱体</span>
+          <div class="syntax-code">{{{tag}}} / [[[tag]]]</div>
+          <div class="syntax-example">
+            強調: <span>{{{cute}}}</span> / 弱体: <span>[[[blur]]]</span>
+          </div>
+        </div>
         <div class="syntax-item sdxl">
-          <span class="syntax-label">SDXL / Stable Diffusion 強調構文</span>
+          <span class="syntax-label">SDXL 数値強調</span>
           <div class="syntax-code">(tag:weight)</div>
           <div class="syntax-example">
             例: <span>(artist:sakura_ai:1.5)</span>
+          </div>
+        </div>
+        <div class="syntax-item sdxl">
+          <span class="syntax-label">SDXL 括弧強調/弱体</span>
+          <div class="syntax-code">(((tag))) / [[[tag]]]</div>
+          <div class="syntax-example">
+            強調: <span>(((cute)))</span> / 弱体: <span>[[[blur]]]</span>
           </div>
         </div>
         <div class="syntax-item sdxl">
@@ -612,13 +626,20 @@
       const MARKER_END = '\x01HL_END\x01';
       const ESCAPE_MARKER_START = '\x02ESC_START\x02';
       const ESCAPE_MARKER_END = '\x02ESC_END\x02';
+      const BRACE_MARKER_START = '\x03BRACE_START\x03';
+      const BRACE_MARKER_END = '\x03BRACE_END\x03';
 
       // 1. まず全ての () をエスケープ（マーカー付き）
       let converted = text
         .replace(/\(/g, ESCAPE_MARKER_START + '\\(' + ESCAPE_MARKER_END)
         .replace(/\)/g, ESCAPE_MARKER_START + '\\)' + ESCAPE_MARKER_END);
 
-      // 2. NovelAI構文: weight::tag:: を (tag:weight) に変換（マーカー付き）
+      // 2. NovelAI {} 強調を SDXL () 強調に変換（マーカー付き）
+      converted = converted
+        .replace(/\{/g, BRACE_MARKER_START + '(' + BRACE_MARKER_END)
+        .replace(/\}/g, BRACE_MARKER_START + ')' + BRACE_MARKER_END);
+
+      // 3. NovelAI構文: weight::tag:: を (tag:weight) に変換（マーカー付き）
       converted = converted.replace(
         /(\d+\.?\d*)::(.+?)::/g,
         (match, weight, tag) => `${MARKER_START}(${tag.trim()}:${weight})${MARKER_END}`
@@ -629,7 +650,9 @@
         .replace(new RegExp(MARKER_START, 'g'), '')
         .replace(new RegExp(MARKER_END, 'g'), '')
         .replace(new RegExp(ESCAPE_MARKER_START, 'g'), '')
-        .replace(new RegExp(ESCAPE_MARKER_END, 'g'), '');
+        .replace(new RegExp(ESCAPE_MARKER_END, 'g'), '')
+        .replace(new RegExp(BRACE_MARKER_START, 'g'), '')
+        .replace(new RegExp(BRACE_MARKER_END, 'g'), '');
 
       sdxlInput.value = plainText;
 
@@ -639,7 +662,9 @@
         .replace(new RegExp(escapeHtml(MARKER_START), 'g'), '<span class="highlight-sdxl">')
         .replace(new RegExp(escapeHtml(MARKER_END), 'g'), '</span>')
         .replace(new RegExp(escapeHtml(ESCAPE_MARKER_START), 'g'), '<span class="highlight-escape">')
-        .replace(new RegExp(escapeHtml(ESCAPE_MARKER_END), 'g'), '</span>');
+        .replace(new RegExp(escapeHtml(ESCAPE_MARKER_END), 'g'), '</span>')
+        .replace(new RegExp(escapeHtml(BRACE_MARKER_START), 'g'), '<span class="highlight-sdxl">')
+        .replace(new RegExp(escapeHtml(BRACE_MARKER_END), 'g'), '</span>');
 
       sdxlPreview.innerHTML = previewHtml;
       showToast('SDXL形式に変換しました ✨');
@@ -666,6 +691,8 @@
       const MARKER_END = '\x01HL_END\x01';
       const UNESCAPE_MARKER_START = '\x02UNESC_START\x02';
       const UNESCAPE_MARKER_END = '\x02UNESC_END\x02';
+      const BRACE_MARKER_START = '\x03BRACE_START\x03';
+      const BRACE_MARKER_END = '\x03BRACE_END\x03';
 
       // 1. エスケープされた \( \) を一時プレースホルダーに置換
       const PLACEHOLDER_OPEN = '\x00PAREN_OPEN\x00';
@@ -680,7 +707,12 @@
         (match, tag, weight) => `${MARKER_START}${weight}::${tag.trim()}::${MARKER_END}`
       );
 
-      // 3. プレースホルダーを元の括弧に戻す（マーカー付き）
+      // 3. 残りの () を NovelAI {} 強調に変換（マーカー付き）
+      converted = converted
+        .replace(/\(/g, BRACE_MARKER_START + '{' + BRACE_MARKER_END)
+        .replace(/\)/g, BRACE_MARKER_START + '}' + BRACE_MARKER_END);
+
+      // 4. プレースホルダーを元の括弧に戻す（マーカー付き）
       converted = converted
         .replace(new RegExp(PLACEHOLDER_OPEN, 'g'), UNESCAPE_MARKER_START + '(' + UNESCAPE_MARKER_END)
         .replace(new RegExp(PLACEHOLDER_CLOSE, 'g'), UNESCAPE_MARKER_START + ')' + UNESCAPE_MARKER_END);
@@ -690,7 +722,9 @@
         .replace(new RegExp(MARKER_START, 'g'), '')
         .replace(new RegExp(MARKER_END, 'g'), '')
         .replace(new RegExp(UNESCAPE_MARKER_START, 'g'), '')
-        .replace(new RegExp(UNESCAPE_MARKER_END, 'g'), '');
+        .replace(new RegExp(UNESCAPE_MARKER_END, 'g'), '')
+        .replace(new RegExp(BRACE_MARKER_START, 'g'), '')
+        .replace(new RegExp(BRACE_MARKER_END, 'g'), '');
 
       naiInput.value = plainText;
 
@@ -700,7 +734,9 @@
         .replace(new RegExp(escapeHtml(MARKER_START), 'g'), '<span class="highlight-nai">')
         .replace(new RegExp(escapeHtml(MARKER_END), 'g'), '</span>')
         .replace(new RegExp(escapeHtml(UNESCAPE_MARKER_START), 'g'), '<span class="highlight-escape">')
-        .replace(new RegExp(escapeHtml(UNESCAPE_MARKER_END), 'g'), '</span>');
+        .replace(new RegExp(escapeHtml(UNESCAPE_MARKER_END), 'g'), '</span>')
+        .replace(new RegExp(escapeHtml(BRACE_MARKER_START), 'g'), '<span class="highlight-nai">')
+        .replace(new RegExp(escapeHtml(BRACE_MARKER_END), 'g'), '</span>');
 
       naiPreview.innerHTML = previewHtml;
       showToast('NovelAI形式に変換しました ✨');
