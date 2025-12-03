@@ -1,0 +1,586 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>NAI ⇄ SDXL Prompt Converter</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;600&family=Zen+Kaku+Gothic+New:wght@400;500;700&display=swap" rel="stylesheet">
+  <style>
+    :root {
+      --bg-primary: #0a0a0f;
+      --bg-secondary: #12121a;
+      --bg-tertiary: #1a1a25;
+      --accent-nai: #ff6b9d;
+      --accent-sdxl: #6bffb8;
+      --accent-gradient: linear-gradient(135deg, var(--accent-nai), var(--accent-sdxl));
+      --text-primary: #e8e8f0;
+      --text-secondary: #9090a0;
+      --border-color: #2a2a3a;
+      --shadow-glow-nai: 0 0 20px rgba(255, 107, 157, 0.3);
+      --shadow-glow-sdxl: 0 0 20px rgba(107, 255, 184, 0.3);
+    }
+
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+    }
+
+    body {
+      font-family: 'Zen Kaku Gothic New', sans-serif;
+      background: var(--bg-primary);
+      color: var(--text-primary);
+      min-height: 100vh;
+      overflow-x: hidden;
+    }
+
+    /* Animated background */
+    .bg-pattern {
+      position: fixed;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      background-image: 
+        radial-gradient(circle at 20% 30%, rgba(255, 107, 157, 0.08) 0%, transparent 50%),
+        radial-gradient(circle at 80% 70%, rgba(107, 255, 184, 0.08) 0%, transparent 50%);
+      pointer-events: none;
+      z-index: 0;
+    }
+
+    .container {
+      position: relative;
+      z-index: 1;
+      max-width: 1100px;
+      margin: 0 auto;
+      padding: 2rem 1.5rem;
+    }
+
+    header {
+      text-align: center;
+      margin-bottom: 2.5rem;
+    }
+
+    h1 {
+      font-size: clamp(1.8rem, 5vw, 2.5rem);
+      font-weight: 700;
+      background: var(--accent-gradient);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+      background-clip: text;
+      margin-bottom: 0.5rem;
+      letter-spacing: 0.02em;
+    }
+
+    .subtitle {
+      color: var(--text-secondary);
+      font-size: 0.95rem;
+    }
+
+    .converter-wrapper {
+      display: grid;
+      grid-template-columns: 1fr auto 1fr;
+      gap: 1rem;
+      align-items: stretch;
+    }
+
+    @media (max-width: 768px) {
+      .converter-wrapper {
+        grid-template-columns: 1fr;
+      }
+    }
+
+    .panel {
+      background: var(--bg-secondary);
+      border: 1px solid var(--border-color);
+      border-radius: 16px;
+      padding: 1.5rem;
+      display: flex;
+      flex-direction: column;
+      transition: box-shadow 0.3s ease;
+    }
+
+    .panel.nai:focus-within {
+      box-shadow: var(--shadow-glow-nai);
+      border-color: var(--accent-nai);
+    }
+
+    .panel.sdxl:focus-within {
+      box-shadow: var(--shadow-glow-sdxl);
+      border-color: var(--accent-sdxl);
+    }
+
+    .panel-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      margin-bottom: 1rem;
+    }
+
+    .panel-title {
+      display: flex;
+      align-items: center;
+      gap: 0.5rem;
+      font-weight: 600;
+      font-size: 1.1rem;
+    }
+
+    .panel.nai .panel-title {
+      color: var(--accent-nai);
+    }
+
+    .panel.sdxl .panel-title {
+      color: var(--accent-sdxl);
+    }
+
+    .badge {
+      font-size: 0.7rem;
+      padding: 0.2rem 0.5rem;
+      border-radius: 4px;
+      background: var(--bg-tertiary);
+      color: var(--text-secondary);
+      font-family: 'JetBrains Mono', monospace;
+    }
+
+    textarea {
+      flex: 1;
+      min-height: 280px;
+      background: var(--bg-tertiary);
+      border: 1px solid var(--border-color);
+      border-radius: 10px;
+      padding: 1rem;
+      color: var(--text-primary);
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 0.9rem;
+      line-height: 1.6;
+      resize: vertical;
+      transition: border-color 0.2s ease;
+    }
+
+    textarea:focus {
+      outline: none;
+      border-color: inherit;
+    }
+
+    .panel.nai textarea:focus {
+      border-color: var(--accent-nai);
+    }
+
+    .panel.sdxl textarea:focus {
+      border-color: var(--accent-sdxl);
+    }
+
+    textarea::placeholder {
+      color: var(--text-secondary);
+      opacity: 0.6;
+    }
+
+    .btn-group {
+      display: flex;
+      gap: 0.5rem;
+      margin-top: 1rem;
+    }
+
+    .btn {
+      flex: 1;
+      padding: 0.7rem 1rem;
+      border: none;
+      border-radius: 8px;
+      font-family: inherit;
+      font-size: 0.85rem;
+      font-weight: 500;
+      cursor: pointer;
+      transition: all 0.2s ease;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 0.4rem;
+    }
+
+    .btn-copy {
+      background: var(--bg-tertiary);
+      color: var(--text-secondary);
+      border: 1px solid var(--border-color);
+    }
+
+    .btn-copy:hover {
+      background: var(--border-color);
+      color: var(--text-primary);
+    }
+
+    .btn-clear {
+      background: transparent;
+      color: var(--text-secondary);
+      border: 1px solid var(--border-color);
+    }
+
+    .btn-clear:hover {
+      background: rgba(255, 100, 100, 0.1);
+      border-color: #ff6b6b;
+      color: #ff6b6b;
+    }
+
+    /* Center controls */
+    .center-controls {
+      display: flex;
+      flex-direction: column;
+      justify-content: center;
+      align-items: center;
+      gap: 1rem;
+      padding: 1rem 0;
+    }
+
+    @media (max-width: 768px) {
+      .center-controls {
+        flex-direction: row;
+        padding: 0;
+      }
+    }
+
+    .convert-btn {
+      width: 56px;
+      height: 56px;
+      border-radius: 50%;
+      border: 2px solid var(--border-color);
+      background: var(--bg-secondary);
+      color: var(--text-primary);
+      cursor: pointer;
+      transition: all 0.3s ease;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 1.2rem;
+    }
+
+    .convert-btn:hover {
+      transform: scale(1.1);
+    }
+
+    .convert-btn.to-sdxl:hover {
+      border-color: var(--accent-sdxl);
+      box-shadow: var(--shadow-glow-sdxl);
+      color: var(--accent-sdxl);
+    }
+
+    .convert-btn.to-nai:hover {
+      border-color: var(--accent-nai);
+      box-shadow: var(--shadow-glow-nai);
+      color: var(--accent-nai);
+    }
+
+    .convert-btn:active {
+      transform: scale(0.95);
+    }
+
+    /* Syntax reference */
+    .syntax-ref {
+      margin-top: 2.5rem;
+      background: var(--bg-secondary);
+      border: 1px solid var(--border-color);
+      border-radius: 16px;
+      padding: 1.5rem;
+    }
+
+    .syntax-ref h3 {
+      font-size: 1rem;
+      margin-bottom: 1rem;
+      color: var(--text-secondary);
+    }
+
+    .syntax-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+      gap: 1.5rem;
+    }
+
+    .syntax-item {
+      display: flex;
+      flex-direction: column;
+      gap: 0.5rem;
+    }
+
+    .syntax-label {
+      font-size: 0.8rem;
+      color: var(--text-secondary);
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+    }
+
+    .syntax-code {
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 0.9rem;
+      padding: 0.8rem 1rem;
+      background: var(--bg-tertiary);
+      border-radius: 8px;
+      border-left: 3px solid;
+    }
+
+    .syntax-item.nai .syntax-code {
+      border-color: var(--accent-nai);
+    }
+
+    .syntax-item.sdxl .syntax-code {
+      border-color: var(--accent-sdxl);
+    }
+
+    .syntax-example {
+      display: flex;
+      align-items: center;
+      gap: 0.5rem;
+      font-size: 0.85rem;
+      color: var(--text-secondary);
+      margin-top: 0.3rem;
+    }
+
+    .syntax-example span {
+      font-family: 'JetBrains Mono', monospace;
+      color: var(--text-primary);
+    }
+
+    /* Toast notification */
+    .toast {
+      position: fixed;
+      bottom: 2rem;
+      left: 50%;
+      transform: translateX(-50%) translateY(100px);
+      background: var(--bg-tertiary);
+      border: 1px solid var(--accent-sdxl);
+      color: var(--text-primary);
+      padding: 0.8rem 1.5rem;
+      border-radius: 10px;
+      font-size: 0.9rem;
+      opacity: 0;
+      transition: all 0.3s ease;
+      z-index: 1000;
+    }
+
+    .toast.show {
+      transform: translateX(-50%) translateY(0);
+      opacity: 1;
+    }
+
+    footer {
+      text-align: center;
+      margin-top: 3rem;
+      padding-top: 1.5rem;
+      border-top: 1px solid var(--border-color);
+      color: var(--text-secondary);
+      font-size: 0.85rem;
+    }
+
+    footer a {
+      color: var(--accent-sdxl);
+      text-decoration: none;
+    }
+
+    footer a:hover {
+      text-decoration: underline;
+    }
+  </style>
+</head>
+<body>
+  <div class="bg-pattern"></div>
+  
+  <div class="container">
+    <header>
+      <h1>NAI ⇄ SDXL Prompt Converter</h1>
+      <p class="subtitle">NovelAI と Stable Diffusion XL の強調構文を相互変換</p>
+    </header>
+
+    <div class="converter-wrapper">
+      <!-- NovelAI Panel -->
+      <div class="panel nai">
+        <div class="panel-header">
+          <div class="panel-title">
+            <span>📝</span>
+            <span>NovelAI</span>
+          </div>
+          <span class="badge">weight::tag::</span>
+        </div>
+        <textarea 
+          id="nai-input" 
+          placeholder="NovelAI形式のプロンプトを入力...&#10;例: 1.5::beautiful girl::, 0.8::sunset::"
+        ></textarea>
+        <div class="btn-group">
+          <button class="btn btn-copy" onclick="copyText('nai-input')">
+            📋 コピー
+          </button>
+          <button class="btn btn-clear" onclick="clearText('nai-input')">
+            🗑️ クリア
+          </button>
+        </div>
+      </div>
+
+      <!-- Center Controls -->
+      <div class="center-controls">
+        <button class="convert-btn to-sdxl" onclick="convertToSDXL()" title="NovelAI → SDXL">
+          →
+        </button>
+        <button class="convert-btn to-nai" onclick="convertToNAI()" title="SDXL → NovelAI">
+          ←
+        </button>
+      </div>
+
+      <!-- SDXL Panel -->
+      <div class="panel sdxl">
+        <div class="panel-header">
+          <div class="panel-title">
+            <span>🎨</span>
+            <span>SDXL / SD</span>
+          </div>
+          <span class="badge">(tag:weight)</span>
+        </div>
+        <textarea 
+          id="sdxl-input" 
+          placeholder="SDXL形式のプロンプトを入力...&#10;例: (beautiful girl:1.5), (sunset:0.8)"
+        ></textarea>
+        <div class="btn-group">
+          <button class="btn btn-copy" onclick="copyText('sdxl-input')">
+            📋 コピー
+          </button>
+          <button class="btn btn-clear" onclick="clearText('sdxl-input')">
+            🗑️ クリア
+          </button>
+        </div>
+      </div>
+    </div>
+
+    <!-- Syntax Reference -->
+    <div class="syntax-ref">
+      <h3>📖 構文リファレンス</h3>
+      <div class="syntax-grid">
+        <div class="syntax-item nai">
+          <span class="syntax-label">NovelAI 強調構文</span>
+          <div class="syntax-code">weight::tag::</div>
+          <div class="syntax-example">
+            例: <span>1.5::beautiful girl::</span>
+          </div>
+        </div>
+        <div class="syntax-item sdxl">
+          <span class="syntax-label">SDXL / Stable Diffusion 強調構文</span>
+          <div class="syntax-code">(tag:weight)</div>
+          <div class="syntax-example">
+            例: <span>(beautiful girl:1.5)</span>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <footer>
+      <p>Made with ❤️ for AI artists</p>
+    </footer>
+  </div>
+
+  <div class="toast" id="toast"></div>
+
+  <script>
+    /**
+     * NovelAI構文をSDXL構文に変換
+     * NovelAI: weight::tag:: → SDXL: (tag:weight)
+     */
+    function convertToSDXL() {
+      const naiInput = document.getElementById('nai-input');
+      const sdxlInput = document.getElementById('sdxl-input');
+      
+      const text = naiInput.value;
+      if (!text.trim()) {
+        showToast('NovelAI側にテキストを入力してください');
+        return;
+      }
+
+      // NovelAI構文: weight::tag:: をマッチ
+      // weightは数値（小数点あり/なし）、tagは::で囲まれた部分
+      const converted = text.replace(
+        /(\d+\.?\d*)::([^:]+)::/g,
+        (match, weight, tag) => `(${tag.trim()}:${weight})`
+      );
+
+      sdxlInput.value = converted;
+      showToast('SDXL形式に変換しました ✨');
+    }
+
+    /**
+     * SDXL構文をNovelAI構文に変換
+     * SDXL: (tag:weight) → NovelAI: weight::tag::
+     */
+    function convertToNAI() {
+      const naiInput = document.getElementById('nai-input');
+      const sdxlInput = document.getElementById('sdxl-input');
+      
+      const text = sdxlInput.value;
+      if (!text.trim()) {
+        showToast('SDXL側にテキストを入力してください');
+        return;
+      }
+
+      // SDXL構文: (tag:weight) をマッチ
+      // tagは:より前、weightは数値
+      const converted = text.replace(
+        /\(([^:)]+):(\d+\.?\d*)\)/g,
+        (match, tag, weight) => `${weight}::${tag.trim()}::`
+      );
+
+      naiInput.value = converted;
+      showToast('NovelAI形式に変換しました ✨');
+    }
+
+    /**
+     * テキストをクリップボードにコピー
+     */
+    function copyText(elementId) {
+      const textarea = document.getElementById(elementId);
+      const text = textarea.value;
+      
+      if (!text.trim()) {
+        showToast('コピーするテキストがありません');
+        return;
+      }
+
+      navigator.clipboard.writeText(text).then(() => {
+        showToast('クリップボードにコピーしました 📋');
+      }).catch(() => {
+        // Fallback for older browsers
+        textarea.select();
+        document.execCommand('copy');
+        showToast('クリップボードにコピーしました 📋');
+      });
+    }
+
+    /**
+     * テキストエリアをクリア
+     */
+    function clearText(elementId) {
+      document.getElementById(elementId).value = '';
+    }
+
+    /**
+     * トースト通知を表示
+     */
+    function showToast(message) {
+      const toast = document.getElementById('toast');
+      toast.textContent = message;
+      toast.classList.add('show');
+      
+      setTimeout(() => {
+        toast.classList.remove('show');
+      }, 2000);
+    }
+
+    // キーボードショートカット
+    document.addEventListener('keydown', (e) => {
+      // Ctrl/Cmd + Enter で変換
+      if ((e.ctrlKey || e.metaKey) && e.key === 'Enter') {
+        const activeElement = document.activeElement;
+        if (activeElement.id === 'nai-input') {
+          convertToSDXL();
+        } else if (activeElement.id === 'sdxl-input') {
+          convertToNAI();
+        }
+      }
+    });
+  </script>
+</body>
+</html>
+
