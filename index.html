@@ -455,14 +455,21 @@
           <span class="syntax-label">NovelAI 強調構文</span>
           <div class="syntax-code">weight::tag::</div>
           <div class="syntax-example">
-            例: <span>1.5::beautiful girl::</span>
+            例: <span>1.5::artist:patzzi::</span>
           </div>
         </div>
         <div class="syntax-item sdxl">
           <span class="syntax-label">SDXL / Stable Diffusion 強調構文</span>
           <div class="syntax-code">(tag:weight)</div>
           <div class="syntax-example">
-            例: <span>(beautiful girl:1.5)</span>
+            例: <span>(artist:patzzi:1.5)</span>
+          </div>
+        </div>
+        <div class="syntax-item sdxl">
+          <span class="syntax-label">SDXL 括弧エスケープ</span>
+          <div class="syntax-code">\(text\)</div>
+          <div class="syntax-example">
+            例: <span>huwari_\(dnwls3010\)</span>
           </div>
         </div>
       </div>
@@ -479,6 +486,7 @@
     /**
      * NovelAI構文をSDXL構文に変換
      * NovelAI: weight::tag:: → SDXL: (tag:weight)
+     * また、強調構文以外の()をエスケープ
      */
     function convertToSDXL() {
       const naiInput = document.getElementById('nai-input');
@@ -490,10 +498,15 @@
         return;
       }
 
-      // NovelAI構文: weight::tag:: をマッチ
+      // 1. まず全ての () をエスケープ
+      let converted = text
+        .replace(/\(/g, '\\(')
+        .replace(/\)/g, '\\)');
+
+      // 2. NovelAI構文: weight::tag:: を (tag:weight) に変換
       // weightは数値（小数点あり/なし）、tagは::で囲まれた部分
       // タグ内にコロンが含まれる場合も対応（例: artist:name）
-      const converted = text.replace(
+      converted = converted.replace(
         /(\d+\.?\d*)::(.+?)::/g,
         (match, weight, tag) => `(${tag.trim()}:${weight})`
       );
@@ -505,6 +518,7 @@
     /**
      * SDXL構文をNovelAI構文に変換
      * SDXL: (tag:weight) → NovelAI: weight::tag::
+     * また、エスケープされた\(\)を元に戻す
      */
     function convertToNAI() {
       const naiInput = document.getElementById('nai-input');
@@ -516,13 +530,18 @@
         return;
       }
 
-      // SDXL構文: (tag:weight) をマッチ
+      // 1. SDXL構文: (tag:weight) を weight::tag:: に変換
       // tagは最後の:より前、weightは数値
       // タグ内にコロンが含まれる場合も対応（例: artist:name）
-      const converted = text.replace(
+      let converted = text.replace(
         /\((.+):(\d+\.?\d*)\)/g,
         (match, tag, weight) => `${weight}::${tag.trim()}::`
       );
+
+      // 2. エスケープされた \( \) を元に戻す
+      converted = converted
+        .replace(/\\\(/g, '(')
+        .replace(/\\\)/g, ')');
 
       naiInput.value = converted;
       showToast('NovelAI形式に変換しました ✨');
