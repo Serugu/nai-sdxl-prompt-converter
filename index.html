@@ -492,8 +492,9 @@
 
       // NovelAI構文: weight::tag:: をマッチ
       // weightは数値（小数点あり/なし）、tagは::で囲まれた部分
+      // タグ内にコロンが含まれる場合も対応（例: artist:name）
       const converted = text.replace(
-        /(\d+\.?\d*)::([^:]+)::/g,
+        /(\d+\.?\d*)::(.+?)::/g,
         (match, weight, tag) => `(${tag.trim()}:${weight})`
       );
 
@@ -516,9 +517,10 @@
       }
 
       // SDXL構文: (tag:weight) をマッチ
-      // tagは:より前、weightは数値
+      // tagは最後の:より前、weightは数値
+      // タグ内にコロンが含まれる場合も対応（例: artist:name）
       const converted = text.replace(
-        /\(([^:)]+):(\d+\.?\d*)\)/g,
+        /\((.+):(\d+\.?\d*)\)/g,
         (match, tag, weight) => `${weight}::${tag.trim()}::`
       );
 
