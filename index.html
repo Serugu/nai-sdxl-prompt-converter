@@ -530,18 +530,26 @@
         return;
       }
 
-      // 1. SDXL構文: (tag:weight) を weight::tag:: に変換
+      // 1. エスケープされた \( \) を一時プレースホルダーに置換
+      //    （強調構文の () と区別するため）
+      const PLACEHOLDER_OPEN = '\x00PAREN_OPEN\x00';
+      const PLACEHOLDER_CLOSE = '\x00PAREN_CLOSE\x00';
+      let converted = text
+        .replace(/\\\(/g, PLACEHOLDER_OPEN)
+        .replace(/\\\)/g, PLACEHOLDER_CLOSE);
+
+      // 2. SDXL構文: (tag:weight) を weight::tag:: に変換
       // tagは最後の:より前、weightは数値
       // タグ内にコロンが含まれる場合も対応（例: artist:name）
-      let converted = text.replace(
-        /\((.+):(\d+\.?\d*)\)/g,
+      converted = converted.replace(
+        /\(([^()]+):(\d+\.?\d*)\)/g,
         (match, tag, weight) => `${weight}::${tag.trim()}::`
       );
 
-      // 2. エスケープされた \( \) を元に戻す
+      // 3. プレースホルダーを元の括弧に戻す（NovelAIではエスケープ不要）
       converted = converted
-        .replace(/\\\(/g, '(')
-        .replace(/\\\)/g, ')');
+        .replace(new RegExp(PLACEHOLDER_OPEN, 'g'), '(')
+        .replace(new RegExp(PLACEHOLDER_CLOSE, 'g'), ')');
 
       naiInput.value = converted;
       showToast('NovelAI形式に変換しました ✨');
